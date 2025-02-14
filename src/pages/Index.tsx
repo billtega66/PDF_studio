@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,6 +9,8 @@ const Index = () => {
   const [showDocuments, setShowDocuments] = useState(false);
   const [showRelevant, setShowRelevant] = useState(false);
   const { toast } = useToast();
+
+  const title = "RAG Question Answer";
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -54,14 +55,17 @@ const Index = () => {
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/[0.05] shadow-lg">
         <div className="container max-w-5xl mx-auto py-6">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-[#D6BCFA] bg-clip-text text-transparent tracking-wide">
-            RAG Question Answer
+            {title.split('').map((char, index) => (
+              <span key={index} className="animate-letter inline-block">
+                {char}
+              </span>
+            ))}
           </h1>
         </div>
       </div>
 
       <main className="container max-w-5xl mx-auto pt-24">
         <div className="grid md:grid-cols-[320px,1fr] gap-8">
-          {/* Sidebar */}
           <div className="glass-panel p-8 space-y-8 h-fit">
             <div className="space-y-6">
               <h2 className="text-2xl font-medium text-white/90">
@@ -95,7 +99,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="space-y-8">
             <div className="glass-panel p-8 space-y-8">
               <div className="space-y-6">
@@ -115,7 +118,6 @@ const Index = () => {
                 </button>
               </div>
 
-              {/* Expandable Sections */}
               <div className="space-y-4">
                 <button
                   className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
