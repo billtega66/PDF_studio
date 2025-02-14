@@ -53,7 +53,7 @@ const Index = () => {
     <div className="min-h-screen p-8 animate-fade-in">
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/[0.05] shadow-lg">
         <div className="container max-w-5xl mx-auto py-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-[#D6BCFA] bg-clip-text text-transparent tracking-wide">
             RAG Question Answer
           </h1>
         </div>
