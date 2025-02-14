@@ -51,12 +51,20 @@ const Index = () => {
 
   return (
     <div className="min-h-screen p-8 animate-fade-in">
-      <main className="container max-w-5xl mx-auto">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/[0.05] shadow-lg">
+        <div className="container max-w-5xl mx-auto py-6">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent">
+            RAG Question Answer
+          </h1>
+        </div>
+      </div>
+
+      <main className="container max-w-5xl mx-auto pt-24">
         <div className="grid md:grid-cols-[320px,1fr] gap-8">
           {/* Sidebar */}
           <div className="glass-panel p-8 space-y-8 h-fit">
             <div className="space-y-6">
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-medium text-white/90">
                 Upload PDF
               </h2>
               <label className="flex flex-col items-center justify-center w-full h-40 glass-panel cursor-pointer hover:bg-white/[0.04] group">
@@ -89,9 +97,6 @@ const Index = () => {
 
           {/* Main Content */}
           <div className="space-y-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent">
-              RAG Question Answer
-            </h1>
             <div className="glass-panel p-8 space-y-8">
               <div className="space-y-6">
                 <textarea
