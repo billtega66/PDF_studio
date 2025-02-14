@@ -50,18 +50,22 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen p-8">
-      <main className="container max-w-4xl mx-auto">
-        <div className="grid md:grid-cols-[300px,1fr] gap-8">
+    <div className="min-h-screen p-8 animate-fade-in">
+      <main className="container max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-[320px,1fr] gap-8">
           {/* Sidebar */}
-          <div className="glass-panel p-6 space-y-6 h-fit">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-white/90">Upload PDF</h2>
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 mb-3 text-white/50" />
+          <div className="glass-panel p-8 space-y-8 h-fit">
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+                Upload PDF
+              </h2>
+              <label className="flex flex-col items-center justify-center w-full h-40 glass-panel cursor-pointer hover:bg-white/[0.04] group">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6 space-y-3">
+                  <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                    <Upload className="w-6 h-6 text-primary" />
+                  </div>
                   <p className="text-sm text-white/70">
-                    {file ? file.name : "Click to upload PDF"}
+                    {file ? file.name : "Drop your PDF here or click to browse"}
                   </p>
                 </div>
                 <input
@@ -72,34 +76,36 @@ const Index = () => {
                 />
               </label>
               <button
-                className="glass-button w-full flex items-center justify-center gap-2"
+                className="glass-button w-full flex items-center justify-center gap-2 group"
                 onClick={handleProcess}
                 disabled={!file || isProcessing}
               >
-                {isProcessing ? "Processing..." : "Process Document"}
+                <span className={isProcessing ? "animate-pulse" : ""}>
+                  {isProcessing ? "Processing..." : "Process Document"}
+                </span>
               </button>
             </div>
           </div>
 
           {/* Main Content */}
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-white/90">
+          <div className="space-y-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent">
               RAG Question Answer
             </h1>
-            <div className="glass-panel p-6 space-y-6">
-              <div className="space-y-4">
+            <div className="glass-panel p-8 space-y-8">
+              <div className="space-y-6">
                 <textarea
-                  className="glass-input w-full h-32 resize-none"
+                  className="glass-input w-full h-40 resize-none"
                   placeholder="Ask a question related to your document..."
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                 />
                 <button
-                  className="glass-button w-full flex items-center justify-center gap-2"
+                  className="glass-button w-full flex items-center justify-center gap-3 group"
                   onClick={handleAsk}
                   disabled={!question}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   Ask Question
                 </button>
               </div>
@@ -107,35 +113,35 @@ const Index = () => {
               {/* Expandable Sections */}
               <div className="space-y-4">
                 <button
-                  className="flex items-center justify-between w-full text-white/70 hover:text-white"
+                  className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
                   onClick={() => setShowDocuments(!showDocuments)}
                 >
-                  <span>Retrieved Documents</span>
+                  <span className="font-medium">Retrieved Documents</span>
                   {showDocuments ? (
-                    <ChevronUp className="w-4 h-4" />
+                    <ChevronUp className="w-5 h-5 text-primary" />
                   ) : (
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   )}
                 </button>
                 {showDocuments && (
-                  <div className="p-4 bg-black/20 rounded-lg">
+                  <div className="p-6 glass-panel space-y-4 animate-fade-in">
                     <p className="text-white/60">No documents retrieved yet.</p>
                   </div>
                 )}
 
                 <button
-                  className="flex items-center justify-between w-full text-white/70 hover:text-white"
+                  className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
                   onClick={() => setShowRelevant(!showRelevant)}
                 >
-                  <span>Relevant Document IDs</span>
+                  <span className="font-medium">Relevant Document IDs</span>
                   {showRelevant ? (
-                    <ChevronUp className="w-4 h-4" />
+                    <ChevronUp className="w-5 h-5 text-primary" />
                   ) : (
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   )}
                 </button>
                 {showRelevant && (
-                  <div className="p-4 bg-black/20 rounded-lg">
+                  <div className="p-6 glass-panel space-y-4 animate-fade-in">
                     <p className="text-white/60">No relevant documents yet.</p>
                   </div>
                 )}
