@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Upload, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,7 +11,7 @@ const Index = () => {
   const [showRelevant, setShowRelevant] = useState(false);
   const { toast } = useToast();
 
-  const title = "RAG QUESTION ANSWER";
+  const title = "RAG.STuDiO";
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
