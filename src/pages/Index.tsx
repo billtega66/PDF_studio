@@ -10,7 +10,7 @@ const Index = () => {
   const [showRelevant, setShowRelevant] = useState(false);
   const { toast } = useToast();
 
-  const title = "RAG Question Answer";
+  const title = "RAG QUESTION ANSWER";
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -54,7 +54,7 @@ const Index = () => {
     <div className="min-h-screen p-8 animate-fade-in">
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/[0.05] shadow-lg">
         <div className="container max-w-5xl mx-auto py-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-white/90 to-[#D6BCFA] bg-clip-text text-transparent tracking-wide">
+          <h1 className="text-5xl font-extrabold tracking-[0.2em] text-white">
             {title.split('').map((char, index) => (
               <span key={index} className="animate-letter inline-block">
                 {char}
