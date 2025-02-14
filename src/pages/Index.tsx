@@ -54,7 +54,7 @@ const Index = () => {
     <div className="min-h-screen p-8 animate-fade-in">
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/[0.05] shadow-lg">
         <div className="container max-w-5xl mx-auto py-6">
-          <h1 className="text-5xl font-extrabold tracking-[0.2em] text-white">
+          <h1 className="text-5xl font-black tracking-[-0.02em] text-white">
             {title.split('').map((char, index) => (
               <span key={index} className="animate-letter inline-block">
                 {char}
