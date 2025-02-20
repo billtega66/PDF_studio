@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Upload, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -7,12 +6,16 @@ const Index = () => {
   const [file, setFile] = useState<File | null>(null);
   const [question, setQuestion] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
-  const [showRelevant, setShowRelevant] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [retrievedDocuments, setRetrievedDocuments] = useState<any[]>([]);
+  const [relevantDocumentIds, setRelevantDocumentIds] = useState<any[]>([]);
   const { toast } = useToast();
 
   const title = "RAG.STuDiO";
+  const API_URL = "http://127.0.0.1:8001"; // Adjust this if hosted elsewhere
 
+  /** Handle File Selection */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile && selectedFile.type === "application/pdf") {
@@ -30,25 +33,82 @@ const Index = () => {
     }
   };
 
+  /** Upload PDF and Process */
   const handleProcess = async () => {
     if (!file) return;
     setIsProcessing(true);
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`${API_URL}/process`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Document Processed",
+          description: "Your PDF has been indexed successfully",
+        });
+      } else {
+        toast({
+          title: "Error Processing PDF",
+          description: data.error || "An error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to the backend.",
+        variant: "destructive",
+      });
+    }
+
     setIsProcessing(false);
-    toast({
-      title: "Document processed",
-      description: "Your PDF has been processed successfully",
-    });
   };
 
+  /** Ask a Question */
   const handleAsk = async () => {
     if (!question) return;
-    // Simulate API call
-    toast({
-      title: "Processing your question",
-      description: "Please wait while we analyze your query",
-    });
+    setIsAsking(true);
+    const formData = new FormData();
+    formData.append("prompt", question);
+
+    try {
+      const response = await fetch(`${API_URL}/ask`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setAnswer(data.response);
+        setRetrievedDocuments(data.retrieved_documents);
+        setRelevantDocumentIds(data.relevant_ids);
+
+        toast({
+          title: "Answer Received",
+          description: "Your question has been processed successfully",
+        });
+      } else {
+        toast({
+          title: "Error Getting Answer",
+          description: data.error || "An error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to the backend.",
+        variant: "destructive",
+      });
+    }
+
+    setIsAsking(false);
   };
 
   return (
@@ -112,48 +172,47 @@ const Index = () => {
                 <button
                   className="glass-button w-full flex items-center justify-center gap-3 group"
                   onClick={handleAsk}
-                  disabled={!question}
+                  disabled={!question || isAsking}
                 >
                   <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  Ask Question
+                  {isAsking ? "Processing..." : "Ask Question"}
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <button
-                  className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
-                  onClick={() => setShowDocuments(!showDocuments)}
-                >
-                  <span className="font-medium">Retrieved Documents</span>
-                  {showDocuments ? (
-                    <ChevronUp className="w-5 h-5 text-primary" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-primary" />
-                  )}
-                </button>
-                {showDocuments && (
-                  <div className="p-6 glass-panel space-y-4 animate-fade-in">
-                    <p className="text-white/60">No documents retrieved yet.</p>
-                  </div>
-                )}
+              {answer && (
+                <div className="p-6 glass-panel space-y-4 animate-fade-in">
+                  <h3 className="font-medium">Answer:</h3>
+                  <p className="text-white/70">{answer}</p>
+                </div>
+              )}
 
-                <button
-                  className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
-                  onClick={() => setShowRelevant(!showRelevant)}
-                >
-                  <span className="font-medium">Relevant Document IDs</span>
-                  {showRelevant ? (
-                    <ChevronUp className="w-5 h-5 text-primary" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-primary" />
-                  )}
-                </button>
-                {showRelevant && (
-                  <div className="p-6 glass-panel space-y-4 animate-fade-in">
-                    <p className="text-white/60">No relevant documents yet.</p>
-                  </div>
-                )}
-              </div>
+              <button
+                className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
+                onClick={() => setRetrievedDocuments([])}
+              >
+                <span className="font-medium">Retrieved Documents</span>
+              </button>
+              {retrievedDocuments.length > 0 && (
+                <div className="p-6 glass-panel space-y-4 animate-fade-in">
+                  {retrievedDocuments.map((doc, index) => (
+                    <p key={index} className="text-white/60">{doc}</p>
+                  ))}
+                </div>
+              )}
+
+              <button
+                className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
+                onClick={() => setRelevantDocumentIds([])}
+              >
+                <span className="font-medium">Relevant Document IDs</span>
+              </button>
+              {relevantDocumentIds.length > 0 && (
+                <div className="p-6 glass-panel space-y-4 animate-fade-in">
+                  {relevantDocumentIds.map((id, index) => (
+                    <p key={index} className="text-white/60">{id}</p>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
