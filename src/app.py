@@ -75,14 +75,6 @@ def process_document(file_bytes: bytes) -> list[Document]:
 
 def get_vector_collection() -> chromadb.Collection:
     """Gets or creates a ChromaDB collection for vector storage.
-
-    Creates an Ollama embedding function using the nomic-embed-text model and initializes
-    a persistent ChromaDB client. Returns a collection that can be used to store and
-    query document embeddings.
-
-    Returns:
-        chromadb.Collection: A ChromaDB collection configured with the Ollama embedding
-            function and cosine similarity space.
     """
     ollama_ef = OllamaEmbeddingFunction(
         url="http://localhost:11434/api/embeddings",
@@ -99,19 +91,6 @@ def get_vector_collection() -> chromadb.Collection:
 
 def add_to_vector_collection(all_splits: list[Document], file_name: str):
     """Adds document splits to a vector collection for semantic search.
-
-    Takes a list of document splits and adds them to a ChromaDB vector collection
-    along with their metadata and unique IDs based on the filename.
-
-    Args:
-        all_splits: List of Document objects containing text chunks and metadata
-        file_name: String identifier used to generate unique IDs for the chunks
-
-    Returns:
-        None. Displays a success message via Streamlit when complete.
-
-    Raises:
-        ChromaDBError: If there are issues upserting documents to the collection
     """
     collection = get_vector_collection()
     documents, metadatas, ids = [], [], []
@@ -131,16 +110,6 @@ def add_to_vector_collection(all_splits: list[Document], file_name: str):
 
 def query_collection(prompt: str, n_results: int = 10):
     """Queries the vector collection with a given prompt to retrieve relevant documents.
-
-    Args:
-        prompt: The search query text to find relevant documents.
-        n_results: Maximum number of results to return. Defaults to 10.
-
-    Returns:
-        dict: Query results containing documents, distances and metadata from the collection.
-
-    Raises:
-        ChromaDBError: If there are issues querying the collection.
     """
     collection = get_vector_collection()
     results = collection.query(query_texts=[prompt], n_results=n_results)
@@ -149,19 +118,6 @@ def query_collection(prompt: str, n_results: int = 10):
 
 def call_llm(context: str, prompt: str):
     """Calls the language model with context and prompt to generate a response.
-
-    Uses Ollama to stream responses from a language model by providing context and a
-    question prompt. The model uses a system prompt to format and ground its responses appropriately.
-
-    Args:
-        context: String containing the relevant context for answering the question
-        prompt: String containing the user's question
-
-    Yields:
-        String chunks of the generated response as they become available from the model
-
-    Raises:
-        OllamaError: If there are issues communicating with the Ollama API
     """
     response = ollama.chat(
         model="phi4",
@@ -186,22 +142,6 @@ def call_llm(context: str, prompt: str):
 
 def re_rank_cross_encoders(prompt:str, documents: list[str]) -> tuple[str, list[int]]:
     """Re-ranks documents using a cross-encoder model for more accurate relevance scoring.
-
-    Uses the MS MARCO MiniLM cross-encoder model to re-rank the input documents based on
-    their relevance to the query prompt. Returns the concatenated text of the top 3 most
-    relevant documents along with their indices.
-
-    Args:
-        documents: List of document strings to be re-ranked.
-
-    Returns:
-        tuple: A tuple containing:
-            - relevant_text (str): Concatenated text from the top 3 ranked documents
-            - relevant_text_ids (list[int]): List of indices for the top ranked documents
-
-    Raises:
-        ValueError: If documents list is empty
-        RuntimeError: If cross-encoder model fails to load or rank documents
     """
     relevant_text = ""
     relevant_text_ids = []

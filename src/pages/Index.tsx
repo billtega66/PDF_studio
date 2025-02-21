@@ -12,7 +12,7 @@ const Index = () => {
   const [relevantDocumentIds, setRelevantDocumentIds] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const title = "RAG.STuDiO";
+  const title = "PDF.STuDiO";
   const API_URL = "http://127.0.0.1:8001"; // Adjust this if hosted elsewhere
 
   /** Handle File Selection */
