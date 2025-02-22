@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: [https://lovable.dev/projects/db1d762f-4f9f-4a50-95b5-5457fc3d5ce5](https://github.com/billtega66/RAG_studio/edit/main)
+**URL**: https://github.com/billtega66/PDF_studio.git
 
 ## How can I edit this code?
 
