@@ -16,7 +16,7 @@ from sentence_transformers import CrossEncoder
 
 
 app = FastAPI()
-# ✅ Enable CORS to allow frontend communication
+# Enable CORS to allow frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins (change this to frontend URL if needed)
@@ -49,23 +49,23 @@ Important: Base your entire response solely on the information provided in the c
 def process_document(file_bytes: bytes) -> list[Document]:
     """Processes an uploaded PDF file, extracts text, and splits it into smaller chunks."""
     
-    # ✅ Use mkstemp() to avoid permission errors
+    # Use mkstemp() to avoid permission errors
     temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf")
     
     try:
-        # ✅ Write bytes to the temporary file
+        # Write bytes to the temporary file
         with os.fdopen(temp_fd, "wb") as temp_file:
             temp_file.write(file_bytes)
 
-        # ✅ Load and extract text using PyMuPDFLoader
+        # Load and extract text using PyMuPDFLoader
         loader = PyMuPDFLoader(temp_path)
         docs = loader.load()
 
     finally:
-        # ✅ Delete the temporary file after processing to avoid permission errors
+        # Delete the temporary file after processing to avoid permission errors
         os.unlink(temp_path)
 
-    # ✅ Split text into chunks
+    # Split text into chunks
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=100,
@@ -222,28 +222,28 @@ async def process_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         return JSONResponse(status_code=400, content={"error": "Invalid file type"})
     
-    contents = await file.read()  # ✅ Read the file as bytes
-    splits = process_document(contents)  # ✅ Process PDF
+    contents = await file.read()  # Read the file as bytes
+    splits = process_document(contents)  # Process PDF
 
     file_name = file.filename.replace("-", "_").replace(" ", "_").replace(".", "_")
 
-    # ✅ Index the document in the vector database
+    # Index the document in the vector database
     result = add_to_vector_collection(splits, file_name)
 
-    return result  # ✅ Return success message
+    return result  # Return success message
 
 
 @app.post("/ask")
 async def ask_question(prompt: str = Form(...)):
     results = query_collection(prompt)
 
-    # ✅ Ensure documents exist before processing
+    # Ensure documents exist before processing
     if not results["documents"]:
         return {"response": "No relevant documents found.", "retrieved_documents": [], "relevant_ids": []}
 
     context = results["documents"][0]  # Extract retrieved documents
 
-    # ✅ Fix: Pass both `prompt` and `context` to re_rank_cross_encoders()
+    # Fix: Pass both `prompt` and `context` to re_rank_cross_encoders()
     relevant_text, relevant_text_ids = re_rank_cross_encoders(prompt, context)
 
     response_chunks = []

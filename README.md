@@ -1,50 +1,77 @@
-# Welcome to your Lovable project
+# PDF Studio Project
 
-## Project info
+## Prerequisites
+- Python 3.x
+- Node.js (install via `brew install node`)
+- Ollama installed on your system
 
-**URL**: https://github.com/billtega66/PDF_studio.git
+## Required Python Packages
+```bash
+pip install fastapi uvicorn chromadb ollama langchain_community sentence_transformers python-multipart pymupdf
+```
 
-## How can I edit this code?
+## Setup Instructions (Three Terminal Setup Required)
 
-There are several ways of editing your application.
+### Terminal 1: Python Backend
+```bash
+# Clone the repository
+git clone https://github.com/billtega66/PDF_studio.git
 
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Navigate to project directory
+cd PDF_studio
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # For Mac
 
-# Step 3: Run the backend file 
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Run the backend server
 python app.py
+```
 
-# Step 4: Install the necessary dependencies.
-npm i
+### Terminal 2: Ollama Service
+```bash
+# Check available models
+ollama list
 
-# Step 5: Start the development server with auto-reloading and an instant preview.
+# Pull required models
+ollama pull nomic-embed-text
+
+# Start Ollama service
+ollama run llama2
+```
+
+### Terminal 3: Frontend Development
+```bash
+# Install npm dependencies
+npm install
+
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Troubleshooting
+If you encounter any issues:
+1. Ensure all Python dependencies are installed
+2. Verify Ollama service is running
+3. Check if Node.js is properly installed (`node -v` and `npm -v`)
+4. Make sure you're in the correct directory for each terminal
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Technology Stack
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
+### Frontend
 - TypeScript
+- Tailwind CSS
+- Vite
 - React
 - shadcn-ui
-- Tailwind CSS
+
+### Backend
 - Python
+- FastAPI
+- Ollama (LLM)
+- ChromaDB
+- LangChain
+- PyMuPDF
