@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -13,6 +14,10 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel
+import json
+from datetime import datetime
 
 
 app = FastAPI()
@@ -46,6 +51,17 @@ Format your response as follows:
 
 Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text.
 """
+
+# Model for feedback data
+class FeedbackModel(BaseModel):
+    question: str
+    answer: str
+    feedback_type: str
+    comment: Optional[str] = None
+    retrieved_documents: List[str]
+    relevant_document_ids: List[int]
+    timestamp: str
+
 def process_document(file_bytes: bytes) -> list[Document]:
     """Processes an uploaded PDF file, extracts text, and splits it into smaller chunks."""
     
@@ -215,6 +231,38 @@ def re_rank_cross_encoders(prompt:str, documents: list[str]) -> tuple[str, list[
     return relevant_text, relevant_text_ids
 
 
+def save_feedback(feedback_data: Dict[str, Any]):
+    """Saves user feedback to a JSON file for reinforcement learning from human feedback.
+    
+    This function takes feedback data and appends it to a JSON file, creating the file
+    if it doesn't exist. The feedback can be used later for fine-tuning or RLHF.
+    
+    Args:
+        feedback_data: Dictionary containing feedback information including question,
+            answer, feedback type, optional comment, and relevant document IDs.
+    """
+    feedback_file = "feedback_data.json"
+    
+    # Create feedback file if it doesn't exist
+    if not os.path.exists(feedback_file):
+        with open(feedback_file, "w") as f:
+            json.dump([], f)
+    
+    # Read existing feedback data
+    with open(feedback_file, "r") as f:
+        try:
+            all_feedback = json.load(f)
+        except json.JSONDecodeError:
+            all_feedback = []
+    
+    # Add new feedback and save
+    all_feedback.append(feedback_data)
+    with open(feedback_file, "w") as f:
+        json.dump(all_feedback, f, indent=2)
+    
+    return {"message": "Feedback saved successfully"}
+
+
 @app.post("/process")
 async def process_pdf(file: UploadFile = File(...)):
     """Handles PDF uploads, processes the document, and indexes it."""
@@ -256,6 +304,28 @@ async def ask_question(prompt: str = Form(...)):
         "retrieved_documents": results,
         "relevant_ids": relevant_text_ids,
     }
+
+
+@app.post("/feedback")
+async def submit_feedback(feedback: FeedbackModel):
+    """Endpoint to collect user feedback for reinforcement learning from human feedback."""
+    try:
+        # Convert the model to a dictionary
+        feedback_dict = feedback.dict()
+        
+        # Add additional metadata
+        feedback_dict["processed_at"] = datetime.now().isoformat()
+        
+        # Save the feedback data
+        save_feedback(feedback_dict)
+        
+        return {"message": "Feedback received successfully"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, 
+            content={"error": f"Failed to process feedback: {str(e)}"}
+        )
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8001)

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Upload, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, Send, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { debounce } from "@/utils/debounce";
 
@@ -14,6 +14,9 @@ const Index = () => {
   const [relevantDocumentIds, setRelevantDocumentIds] = useState<any[]>([]);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   const [isRelevantOpen, setIsRelevantOpen] = useState(false);
+  const [feedback, setFeedback] = useState<"positive" | "negative" | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const previousAnswers = useRef<Map<string, any>>(new Map());
   const { toast } = useToast();
 
@@ -109,6 +112,11 @@ const Index = () => {
   const handleAsk = async () => {
     if (!question) return;
     
+    // Reset feedback state when asking a new question
+    setFeedback(null);
+    setFeedbackComment("");
+    setShowFeedbackForm(false);
+    
     // Check for cached result first
     const cachedResult = getCachedAnswer(question);
     if (cachedResult) {
@@ -171,6 +179,50 @@ const Index = () => {
     }
 
     setIsAsking(false);
+  };
+
+  /** Handle feedback submission */
+  const handleFeedbackSubmit = async () => {
+    if (!feedback) return;
+    
+    try {
+      const feedbackData = {
+        question,
+        answer,
+        feedback_type: feedback,
+        comment: feedbackComment || "",
+        retrieved_documents: retrievedDocuments,
+        relevant_document_ids: relevantDocumentIds,
+        timestamp: new Date().toISOString()
+      };
+      
+      // In a real implementation, you would send this to your backend
+      console.log("Submitting feedback:", feedbackData);
+      
+      // Example of how to send to your backend
+      // await fetch(`${API_URL}/feedback`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //   },
+      //   body: JSON.stringify(feedbackData),
+      // });
+      
+      toast({
+        title: "Feedback Submitted",
+        description: "Thank you for your feedback!",
+      });
+      
+      // Reset the feedback form
+      setShowFeedbackForm(false);
+      
+    } catch (error) {
+      toast({
+        title: "Error Submitting Feedback",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -242,9 +294,67 @@ const Index = () => {
               </div>
 
               {answer && (
-                <div className="p-6 glass-panel space-y-4 animate-fade-in">
-                  <h3 className="font-medium">Answer:</h3>
-                  <p className="text-white/70">{answer}</p>
+                <div className="space-y-4 animate-fade-in">
+                  <div className="p-6 glass-panel space-y-4">
+                    <h3 className="font-medium">Answer:</h3>
+                    <p className="text-white/70">{answer}</p>
+                  </div>
+                  
+                  {/* Human Feedback Block */}
+                  <div className="p-6 glass-panel space-y-4">
+                    <h3 className="font-medium">Was this answer helpful?</h3>
+                    <div className="flex items-center gap-4">
+                      <button
+                        className={`glass-button flex items-center gap-2 ${
+                          feedback === "positive" ? "bg-green-500/20 border-green-500/50" : ""
+                        }`}
+                        onClick={() => {
+                          setFeedback("positive");
+                          setShowFeedbackForm(true);
+                        }}
+                      >
+                        <ThumbsUp className="w-5 h-5" />
+                        Yes
+                      </button>
+                      <button
+                        className={`glass-button flex items-center gap-2 ${
+                          feedback === "negative" ? "bg-red-500/20 border-red-500/50" : ""
+                        }`}
+                        onClick={() => {
+                          setFeedback("negative");
+                          setShowFeedbackForm(true);
+                        }}
+                      >
+                        <ThumbsDown className="w-5 h-5" />
+                        No
+                      </button>
+                    </div>
+                    
+                    {showFeedbackForm && (
+                      <div className="animate-fade-in space-y-4 pt-4 border-t border-white/10">
+                        <textarea
+                          className="glass-input w-full h-24 resize-none"
+                          placeholder={feedback === "positive" ? "What did you like about this answer?" : "How could this answer be improved?"}
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="glass-button flex-1 bg-primary/20 hover:bg-primary/30"
+                            onClick={handleFeedbackSubmit}
+                          >
+                            Submit Feedback
+                          </button>
+                          <button
+                            className="glass-button flex-1"
+                            onClick={() => setShowFeedbackForm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
