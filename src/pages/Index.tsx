@@ -1,6 +1,8 @@
-import { useState } from "react";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Upload, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { debounce } from "@/utils/debounce";
 
 const Index = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -10,6 +12,9 @@ const Index = () => {
   const [answer, setAnswer] = useState<string | null>(null);
   const [retrievedDocuments, setRetrievedDocuments] = useState<any[]>([]);
   const [relevantDocumentIds, setRelevantDocumentIds] = useState<any[]>([]);
+  const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  const [isRelevantOpen, setIsRelevantOpen] = useState(false);
+  const previousAnswers = useRef<Map<string, any>>(new Map());
   const { toast } = useToast();
 
   const title = "RAG.STuDiO";
@@ -70,10 +75,55 @@ const Index = () => {
     setIsProcessing(false);
   };
 
-  /** Ask a Question */
+  /** Check if we have a cached answer for this question */
+  const getCachedAnswer = (query: string) => {
+    const cachedResult = previousAnswers.current.get(query.trim().toLowerCase());
+    return cachedResult;
+  };
+
+  /** Debounced question handler to reduce API calls */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedQuestionCheck = useCallback(
+    debounce((query: string) => {
+      // Check if we already have this answer cached
+      const cachedResult = getCachedAnswer(query);
+      if (cachedResult) {
+        // Show a toast to indicate we're using cached results
+        toast({
+          title: "Retrieved from cache",
+          description: "Using previously fetched results",
+        });
+      }
+    }, 500),
+    []
+  );
+
+  // Update when question changes to check cache
+  useEffect(() => {
+    if (question.trim().length > 3) {
+      debouncedQuestionCheck(question);
+    }
+  }, [question, debouncedQuestionCheck]);
+
+  /** Ask a Question with Optimistic UI Updates */
   const handleAsk = async () => {
     if (!question) return;
+    
+    // Check for cached result first
+    const cachedResult = getCachedAnswer(question);
+    if (cachedResult) {
+      setAnswer(cachedResult.response);
+      setRetrievedDocuments(cachedResult.retrieved_documents);
+      setRelevantDocumentIds(cachedResult.relevant_ids);
+      return;
+    }
+    
+    // If not cached, proceed with API call
     setIsAsking(true);
+    
+    // Optimistic UI update
+    setAnswer("Searching documents for relevant information...");
+    
     const formData = new FormData();
     formData.append("prompt", question);
 
@@ -85,6 +135,16 @@ const Index = () => {
 
       const data = await response.json();
       if (response.ok) {
+        // Cache the result for future use
+        previousAnswers.current.set(
+          question.trim().toLowerCase(), 
+          {
+            response: data.response, 
+            retrieved_documents: data.retrieved_documents,
+            relevant_ids: data.relevant_ids
+          }
+        );
+        
         setAnswer(data.response);
         setRetrievedDocuments(data.retrieved_documents);
         setRelevantDocumentIds(data.relevant_ids);
@@ -94,6 +154,7 @@ const Index = () => {
           description: "Your question has been processed successfully",
         });
       } else {
+        setAnswer(null);
         toast({
           title: "Error Getting Answer",
           description: data.error || "An error occurred.",
@@ -101,6 +162,7 @@ const Index = () => {
         });
       }
     } catch (error) {
+      setAnswer(null);
       toast({
         title: "Network Error",
         description: "Unable to connect to the backend.",
@@ -188,11 +250,12 @@ const Index = () => {
 
               <button
                 className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
-                onClick={() => setRetrievedDocuments([])}
+                onClick={() => setIsDocumentsOpen(!isDocumentsOpen)}
               >
                 <span className="font-medium">Retrieved Documents</span>
+                {isDocumentsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </button>
-              {retrievedDocuments.length > 0 && (
+              {isDocumentsOpen && retrievedDocuments.length > 0 && (
                 <div className="p-6 glass-panel space-y-4 animate-fade-in">
                   {retrievedDocuments.map((doc, index) => (
                     <p key={index} className="text-white/60">{doc}</p>
@@ -202,11 +265,12 @@ const Index = () => {
 
               <button
                 className="flex items-center justify-between w-full p-4 glass-panel hover:bg-white/[0.04] transition-colors"
-                onClick={() => setRelevantDocumentIds([])}
+                onClick={() => setIsRelevantOpen(!isRelevantOpen)}
               >
                 <span className="font-medium">Relevant Document IDs</span>
+                {isRelevantOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </button>
-              {relevantDocumentIds.length > 0 && (
+              {isRelevantOpen && relevantDocumentIds.length > 0 && (
                 <div className="p-6 glass-panel space-y-4 animate-fade-in">
                   {relevantDocumentIds.map((id, index) => (
                     <p key={index} className="text-white/60">{id}</p>
