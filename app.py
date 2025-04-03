@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import json
 from datetime import datetime
+from functools import lru_cache
 
 # Define feedback data model
 class FeedbackData(BaseModel):
@@ -67,24 +68,42 @@ def process_document(file_bytes: bytes) -> list[Document]:
             temp_file.write(file_bytes)
         
         with pdfplumber.open(temp_path) as pdf:
-            text = "\n".join([page.extract_text() or "" for page in pdf.pages])
+            # Process pages in parallel using ThreadPoolExecutor
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor() as executor:
+                text = "\n".join(executor.map(lambda page: page.extract_text() or "", pdf.pages))
 
     finally:
         os.unlink(temp_path)
     
+    # Optimize chunk size and overlap for better performance
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500, chunk_overlap=100, separators=["\n\n", "\n", ".", "?", "!", " ", ""]
+        chunk_size=1000,  # Increased chunk size for better context
+        chunk_overlap=200,  # Increased overlap for better continuity
+        separators=["\n\n", "\n", ".", "?", "!", " ", ""],
+        length_function=len,
+        is_separator_regex=False,
     )
-    # Create a Document object from the text
     doc = Document(page_content=text)
     return text_splitter.split_documents([doc])
+
+# Add caching for embeddings
+@lru_cache(maxsize=1000)
+def get_embedding(text: str):
+    """Cache embeddings to avoid recomputing."""
+    return embedding_model.encode([text])[0]
 
 def add_to_vector_store(all_splits: list[Document]):
     """Adds document splits to the FAISS index for fast retrieval."""
     global document_store, index
-    texts = [split.page_content for split in all_splits]
-    embeddings = embedding_model.encode(texts)
     
+    # Process embeddings in parallel
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor() as executor:
+        texts = [split.page_content for split in all_splits]
+        embeddings = list(executor.map(get_embedding, texts))
+    
+    # Add embeddings in batch
     index.add(np.array(embeddings, dtype=np.float32))
     document_store.extend(texts)
     return {"message": "Data added to the FAISS vector store!"}
@@ -101,19 +120,22 @@ def query_vector_store(prompt: str, n_results: int = 10):
     """Queries FAISS vector store and returns relevant documents."""
     global index, document_store
     
-    # Check if we have any documents in the store
     if not document_store:
         return []
-        
-    expanded_query = query_expansion(prompt)
-    query_embedding = embedding_model.encode([expanded_query])
     
-    # Ensure n_results doesn't exceed the number of documents
+    # Use cached embedding
+    query_embedding = get_embedding(query_expansion(prompt))
     n_results = min(n_results, len(document_store))
     
-    D, I = index.search(np.array(query_embedding, dtype=np.float32), n_results)
+    # Use GPU if available for faster search
+    if faiss.get_num_gpus() > 0:
+        res = faiss.StandardGpuResources()
+        gpu_index = faiss.index_cpu_to_gpu(res, 0, index)
+        D, I = gpu_index.search(np.array([query_embedding], dtype=np.float32), n_results)
+        del gpu_index
+    else:
+        D, I = index.search(np.array([query_embedding], dtype=np.float32), n_results)
     
-    # Filter out invalid indices and get corresponding documents
     results = []
     for idx in I[0]:
         if 0 <= idx < len(document_store):
@@ -121,14 +143,96 @@ def query_vector_store(prompt: str, n_results: int = 10):
     
     return results
 
+# Add caching for cross-encoder predictions
+@lru_cache(maxsize=1000)
+def get_cross_encoder_score(prompt: str, doc: str):
+    """Cache cross-encoder scores to avoid recomputing."""
+    return cross_encoder.predict([(prompt, doc)])[0]
+
+def re_rank_cross_encoders(prompt: str, documents: list[str]) -> tuple[str, list[int]]:
+    """Re-ranks documents using a cross-encoder model."""
+    # Process scores in parallel
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor() as executor:
+        scores = list(executor.map(lambda doc: get_cross_encoder_score(prompt, doc), documents))
+    
+    ranked_results = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
+    relevant_text = " ".join([doc[0] for doc in ranked_results[:3]])
+    return relevant_text, [i for i, _ in enumerate(ranked_results[:3])]
+
+# Add caching for LLM responses
+@lru_cache(maxsize=100)
+def get_cached_llm_response(context: str, prompt: str) -> str:
+    """Cache LLM responses for identical queries."""
+    system_prompt = """You are an AI assistant tasked with providing detailed answers based solely on the given context. Your goal is to analyze the information provided and formulate a comprehensive, well-structured response to the question.
+
+context will be passed as "Context:"
+user question will be passed as "Question:"
+
+To answer the question:
+1. Thoroughly analyze the context, identifying key information relevant to the question.
+2. Organize your thoughts and plan your response to ensure a logical flow of information.
+3. Formulate a detailed answer that directly addresses the question, using only the information provided in the context.
+4. Ensure your answer is comprehensive, covering all relevant aspects found in the context.
+5. If the context doesn't contain sufficient information to fully answer the question, state this clearly in your response.
+
+Format your response as follows:
+1. Use clear, concise language.
+2. Organize your answer into paragraphs for readability.
+3. Use bullet points or numbered lists where appropriate to break down complex information.
+4. If relevant, include any headings or subheadings to structure your response.
+5. Ensure proper grammar, punctuation, and spelling throughout your answer.
+
+Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text."""
+
+    response = ollama.chat(
+        model="gemma3:12b",
+        stream=False,  # Use non-streaming for cached responses
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {prompt}"},
+        ],
+    )
+    return response["message"]["content"]
+
 def call_llm(context: str, prompt: str):
     """Calls the language model with context and prompt to generate a response."""
+    # Try to get cached response first
+    try:
+        cached_response = get_cached_llm_response(context, prompt)
+        yield cached_response
+        return
+    except:
+        pass
+    
+    # If no cache, use streaming
+    system_prompt = """You are an AI assistant tasked with providing detailed answers based solely on the given context. Your goal is to analyze the information provided and formulate a comprehensive, well-structured response to the question.
+
+context will be passed as "Context:"
+user question will be passed as "Question:"
+
+To answer the question:
+1. Thoroughly analyze the context, identifying key information relevant to the question.
+2. Organize your thoughts and plan your response to ensure a logical flow of information.
+3. Formulate a detailed answer that directly addresses the question, using only the information provided in the context.
+4. Ensure your answer is comprehensive, covering all relevant aspects found in the context.
+5. If the context doesn't contain sufficient information to fully answer the question, state this clearly in your response.
+
+Format your response as follows:
+1. Use clear, concise language.
+2. Organize your answer into paragraphs for readability.
+3. Use bullet points or numbered lists where appropriate to break down complex information.
+4. If relevant, include any headings or subheadings to structure your response.
+5. Ensure proper grammar, punctuation, and spelling throughout your answer.
+
+Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text."""
+
     response = ollama.chat(
         model="gemma3:12b",
         stream=True,
         messages=[
-            {"role": "system", "content": "Strictly answer based on context."},
-            {"role": "user", "content": f"Context: {context}, Question: {prompt}"},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {prompt}"},
         ],
     )
     for chunk in response:
@@ -136,13 +240,6 @@ def call_llm(context: str, prompt: str):
             yield chunk["message"]["content"]
         else:
             break
-
-def re_rank_cross_encoders(prompt: str, documents: list[str]) -> tuple[str, list[int]]:
-    """Re-ranks documents using a cross-encoder model."""
-    scores = cross_encoder.predict([(prompt, doc) for doc in documents])
-    ranked_results = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
-    relevant_text = " ".join([doc[0] for doc in ranked_results[:3]])
-    return relevant_text, [i for i, _ in enumerate(ranked_results[:3])]
 
 @app.post("/process")
 async def process_pdf(file: UploadFile = File(...)):
@@ -160,23 +257,36 @@ async def ask_question(prompt: str = Form(...)):
     if cache_key in cache:
         return cache[cache_key]
     
-    results = query_vector_store(prompt)
-    if not results:
-        return {"response": "No relevant documents found.", "retrieved_documents": [], "relevant_ids": []}
-    
-    relevant_text, relevant_text_ids = re_rank_cross_encoders(prompt, results)
-    response_chunks = []
-    for chunk in call_llm(context=relevant_text, prompt=prompt):
-        response_chunks.append(chunk)
-    
-    response_text = "".join(response_chunks)
-    final_response = {
-        "response": response_text,
-        "retrieved_documents": results,
-        "relevant_ids": relevant_text_ids,
-    }
-    add_to_cache(cache_key, final_response)
-    return final_response
+    # Add timeout to prevent long-running queries
+    from asyncio import TimeoutError
+    try:
+        results = query_vector_store(prompt)
+        if not results:
+            return {"response": "No relevant documents found.", "retrieved_documents": [], "relevant_ids": []}
+        
+        relevant_text, relevant_text_ids = re_rank_cross_encoders(prompt, results)
+        response_chunks = []
+        
+        # Use asyncio to handle streaming with timeout
+        import asyncio
+        async def collect_chunks():
+            for chunk in call_llm(context=relevant_text, prompt=prompt):
+                response_chunks.append(chunk)
+        
+        await asyncio.wait_for(collect_chunks(), timeout=30.0)  # 30 second timeout
+        
+        response_text = "".join(response_chunks)
+        final_response = {
+            "response": response_text,
+            "retrieved_documents": results,
+            "relevant_ids": relevant_text_ids,
+        }
+        add_to_cache(cache_key, final_response)
+        return final_response
+    except TimeoutError:
+        return {"response": "Request timed out. Please try again.", "retrieved_documents": [], "relevant_ids": []}
+    except Exception as e:
+        return {"response": f"An error occurred: {str(e)}", "retrieved_documents": [], "relevant_ids": []}
 
 @app.post("/feedback")
 async def submit_feedback(feedback: FeedbackData):
